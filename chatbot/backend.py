@@ -2,11 +2,12 @@ from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph.message import add_messages
 from typing import TypedDict, Annotated
 from dotenv import load_dotenv
 import os
+import sqlite3
 
 load_dotenv()
 
@@ -28,8 +29,10 @@ def chat_node(state: ChatState):
     messages= state['messages']
     response= model.invoke(messages)
     return {'messages': [response]}
-    
-checkpointer= InMemorySaver()
+
+conn= sqlite3.connect(database='chatbot.db', check_same_thread= False)
+
+checkpointer= SqliteSaver(conn= conn)
     
 graph= StateGraph(ChatState)
 graph.add_node("chat_node", chat_node)
@@ -41,7 +44,7 @@ chatbot= graph.compile(checkpointer= checkpointer)
 # For streaming instead of .invoke we use .stream
 CONFIG= {'configurable': {'thread_id': 'thread-1'}}
 stream= chatbot.stream(
-    {'messages': [HumanMessage(content='What is the recepie to make pasta')]},
+    {'messages': [HumanMessage(content='What is my name?')]},
     config= CONFIG,
     stream_mode='messages'
 )
@@ -54,4 +57,4 @@ for message_chunk, metadata in stream:
 
 # to get the chats with the help of thread id
 print("************************************************************************************")
-print(chatbot.get_state(config= CONFIG))
+# print(chatbot.get_state(config= CONFIG))
